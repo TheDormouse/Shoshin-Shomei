@@ -104,8 +104,6 @@ const Scene = ({api}) => {
     const [objects, setObjects] = useState([]);
     const clock = new THREE.Clock();
 
-    console.log({api})
-
     useFrame(() => {
         camera.updateProjectionMatrix();
         const delta = clock.getDelta();
@@ -117,12 +115,10 @@ const Scene = ({api}) => {
 
     useEffect(() => {
         const loadVRM = async (url, index) => {
-            console.log(`Loading VRM from URL: ${url}`);
             const loader = new GLTFLoader();
             loader.register((parser) => new VRMLoaderPlugin(parser));
         
             loader.load(url, (vrm) => {
-                console.log("VRM loaded successfully");
                 const walkClip = loadMixamoAnimation(window.anim, vrm.userData.vrm);
                 if (!walkClip) {
                     console.error("Failed to load Mixamo animation for VRM");
@@ -144,12 +140,11 @@ const Scene = ({api}) => {
                 // Add the VRM to the scene
                 scene.add(vrm.scene);
             }, undefined, (error) => {
-                console.error(`Failed to load VRM from URL: ${url}`, error);
+                console.error(`Failed to load VRM`, error);
             });
         };
 
         const fetchData = async () => {
-            console.log("Fetching data from API");
             const response = await fetch(api.url, {
                 headers: {
                     'Api-Key': api.token
