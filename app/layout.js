@@ -1,3 +1,4 @@
+import './global.css'
 export const metadata = {
   title: '昇進証明',
   description: 'Nothing to see here',
