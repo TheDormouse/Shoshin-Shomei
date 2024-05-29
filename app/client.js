@@ -63,7 +63,6 @@ const mixamoVRMRigMap = {
 };
 
 function loadMixamoAnimation(asset, vrm) {
-    console.log("Loading Mixamo Animation");
     const clip = THREE.AnimationClip.findByName(asset.animations, 'mixamo.com');
     if (!clip) {
         console.error("No 'mixamo.com' animation found in the asset");
