@@ -1,182 +1,107 @@
 'use client';
-import React, { useRef, useEffect, useState } from 'react';
-import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
-import { OrthographicCamera, GridHelper, Stats, StatsGl, OrbitControls } from '@react-three/drei';
-import * as THREE from 'three';
+import { useEffect } from 'react';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
-import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader';
-import { VRMLoaderPlugin } from '@pixiv/three-vrm';
-
-const mixamoVRMRigMap = {
-    mixamorigHips: 'hips',
-    mixamorigSpine: 'spine',
-    mixamorigSpine1: 'chest',
-    mixamorigSpine2: 'upperChest',
-    mixamorigNeck: 'neck',
-    mixamorigHead: 'head',
-    mixamorigLeftShoulder: 'leftShoulder',
-    mixamorigLeftArm: 'leftUpperArm',
-    mixamorigLeftForeArm: 'leftLowerArm',
-    mixamorigLeftHand: 'leftHand',
-    mixamorigLeftHandThumb1: 'leftThumbMetacarpal',
-    mixamorigLeftHandThumb2: 'leftThumbProximal',
-    mixamorigLeftHandThumb3: 'leftThumbDistal',
-    mixamorigLeftHandIndex1: 'leftIndexProximal',
-    mixamorigLeftHandIndex2: 'leftIndexIntermediate',
-    mixamorigLeftHandIndex3: 'leftIndexDistal',
-    mixamorigLeftHandMiddle1: 'leftMiddleProximal',
-    mixamorigLeftHandMiddle2: 'leftMiddleIntermediate',
-    mixamorigLeftHandMiddle3: 'leftMiddleDistal',
-    mixamorigLeftHandRing1: 'leftRingProximal',
-    mixamorigLeftHandRing2: 'leftRingIntermediate',
-    mixamorigLeftHandRing3: 'leftRingDistal',
-    mixamorigLeftHandPinky1: 'leftLittleProximal',
-    mixamorigLeftHandPinky2: 'leftLittleIntermediate',
-    mixamorigLeftHandPinky3: 'leftLittleDistal',
-    mixamorigRightShoulder: 'rightShoulder',
-    mixamorigRightArm: 'rightUpperArm',
-    mixamorigRightForeArm: 'rightLowerArm',
-    mixamorigRightHand: 'rightHand',
-    mixamorigRightHandPinky1: 'rightLittleProximal',
-    mixamorigRightHandPinky2: 'rightLittleIntermediate',
-    mixamorigRightHandPinky3: 'rightLittleDistal',
-    mixamorigRightHandRing1: 'rightRingProximal',
-    mixamorigRightHandRing2: 'rightRingIntermediate',
-    mixamorigRightHandRing3: 'rightRingDistal',
-    mixamorigRightHandMiddle1: 'rightMiddleProximal',
-    mixamorigRightHandMiddle2: 'rightMiddleIntermediate',
-    mixamorigRightHandMiddle3: 'rightMiddleDistal',
-    mixamorigRightHandIndex1: 'rightIndexProximal',
-    mixamorigRightHandIndex2: 'rightIndexIntermediate',
-    mixamorigRightHandIndex3: 'rightIndexDistal',
-    mixamorigRightHandThumb1: 'rightThumbMetacarpal',
-    mixamorigRightHandThumb2: 'rightThumbProximal',
-    mixamorigRightHandThumb3: 'rightThumbDistal',
-    mixamorigLeftUpLeg: 'leftUpperLeg',
-    mixamorigLeftLeg: 'leftLowerLeg',
-    mixamorigLeftFoot: 'leftFoot',
-    mixamorigLeftToeBase: 'leftToes',
-    mixamorigRightUpLeg: 'rightUpperLeg',
-    mixamorigRightLeg: 'rightLowerLeg',
-    mixamorigRightFoot: 'rightFoot',
-    mixamorigRightToeBase: 'rightToes',
-};
-
-function loadMixamoAnimation(asset, vrm) {
-    const clip = THREE.AnimationClip.findByName(asset.animations, 'mixamo.com');
-    if (!clip) {
-        console.error("No 'mixamo.com' animation found in the asset");
-        return null;
-    }
-    const tracks = [];
-
-    clip.tracks.forEach((track) => {
-        const trackSplitted = track.name.split('.');
-        const mixamoRigName = trackSplitted[0];
-        const vrmBoneName = mixamoVRMRigMap[mixamoRigName];
-        const vrmNodeName = vrm.humanoid?.getNormalizedBoneNode(vrmBoneName)?.name;
-
-        if (vrmNodeName != null) {
-            const propertyName = trackSplitted[1];
-            if (track instanceof THREE.QuaternionKeyframeTrack) {
-                tracks.push(new THREE.QuaternionKeyframeTrack(
-                    `${vrmNodeName}.${propertyName}`,
-                    track.times,
-                    track.values.map((v, i) => ((vrm.meta?.metaVersion === '0' && (i % 2) === 0) ? -v : v)),
-                ));
-            } else if (track instanceof THREE.VectorKeyframeTrack) {
-                tracks.push(new THREE.VectorKeyframeTrack(
-                    `${vrmNodeName}.${propertyName}`,
-                    track.times,
-                    track.values.map((v, i) => ((vrm.meta?.metaVersion === '0' && (i % 3) !== 1) ? -v : v) * 0.01),
-                ));
-            }
-        }
-    });
-
-    return new THREE.AnimationClip('vrmAnimation', clip.duration, tracks);
-}
-
-const Scene = ({api}) => {
-    const { scene, camera } = useThree();
-    const gridSize = 5;
-    const [objects, setObjects] = useState([]);
-    const clock = new THREE.Clock();
-
-    useFrame(() => {
-        camera.updateProjectionMatrix();
-        const delta = clock.getDelta();
-        objects.forEach((vrm) => {
-            vrm.userData.mixer.update(delta);
-            vrm.userData.vrm.update();
-        });
-    });
+import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
+import { Stats, StatsGl, OrbitControls } from '@react-three/drei';
+import * as THREE from 'three'
+const Scene = () => {
+    const gltf = useLoader(GLTFLoader, './untitled.glb');
+    const { camera, scene } = useThree();
 
     useEffect(() => {
-        const loadVRM = async (url, index) => {
-            const loader = new GLTFLoader();
-            loader.register((parser) => new VRMLoaderPlugin(parser));
-        
-            loader.load(url, (vrm) => {
-                const walkClip = loadMixamoAnimation(window.anim, vrm.userData.vrm);
-                if (!walkClip) {
-                    console.error("Failed to load Mixamo animation for VRM");
-                    return;
-                }
-        
-                vrm.scene.scale.set(0.5, 0.5, 0.5);
-                const x = index % gridSize;
-                const z = Math.floor(index / gridSize);
-                vrm.scene.position.set(x - (gridSize / 2) + 0.5, 0, z - (gridSize / 2) + 0.5);
-        
-                vrm.userData.mixer = new THREE.AnimationMixer(vrm.scene);
-                vrm.userData.action = vrm.userData.mixer.clipAction(walkClip);
-                vrm.userData.action.play();
-                vrm.scene.rotateY(Math.PI);
-        
-                setObjects((prevObjects) => [...prevObjects, vrm]);
-        
-                // Add the VRM to the scene
-                scene.add(vrm.scene);
-            }, undefined, (error) => {
-                console.error(`Failed to load VRM`, error);
-            });
-        };
+        const spawn = scene && scene.children[0]?.children?.find((val) => val.name === "Spawn")
+        if (spawn) {
+            const geometry = new THREE.SphereGeometry(1, 32, 32);
+            const material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+            const sphere = new THREE.Mesh(geometry, material);
+            sphere.position.copy(spawn.position);
+            scene.add(sphere);
+        }
+    }, [scene]);
+    useEffect(() => {
+        if (gltf.scene && gltf.cameras.length > 0) {
+            const mainCamera = gltf.cameras[0]; // Assuming the main camera is the first one
+            console.log(gltf)
+            camera.copy(mainCamera);
+            console.debug('Active camera set to main camera from GLB');
+        }
+    }, [gltf]);
 
-        const fetchData = async () => {
-            const response = await fetch(api.url, {
-                headers: {
-                    'Api-Key': api.token
-                }
-            });
-
-            const data = await response.json();
-            const fbxLoader = new FBXLoader();
-            window.anim = await fbxLoader.loadAsync("./Rumba Dancing.fbx");
-
-            for (let i = 0; i < (gridSize * gridSize); i++) {
-                const vrm = data[Math.floor(Math.random() * data.length)];
-                loadVRM(vrm["metadata"]["assets"][0]["files"][0]["url"], i);
-            }
-        };
-
-        fetchData();
-    }, []);
+    useEffect(() => {
+        if (gltf.scene) {
+            console.debug('GLB file loaded into the scene:', gltf.scene);
+        }
+    }, [gltf]);
 
     return (
         <>
-            <ambientLight intensity={1.0} />
-            <directionalLight intensity={0.5} position={[0, 1, 0]} target-position={[-5, 0, -5]} />
-            <OrbitControls />
-            <gridHelper args={[gridSize, gridSize]} />
+            <primitive object={gltf.scene} position={[0, 0, 0]} />
         </>
     );
-};
+}
+
+const Avatar = async ({api}) => {
+    const { leftShoulder, rightShoulder } = useControls({
+      leftShoulder: { value: 0, min: -1, max: 1 },
+      rightShoulder: { value: 0, min: -1, max: 1 }
+    })
+    const { scene, camera } = useThree()
+    const gltf = useGLTF('/three-vrm-girl.vrm')
+    const avatar = useRef()
+    const [bonesStore, setBones] = useState({})
+    const res = await fetch(api.url, {
+        headers: {
+            'Api-Key': api.token
+        }
+    });
+    const data = await res.json();
+  
+    useEffect(() => {
+      if (gltf) {
+        VRMUtils.removeUnnecessaryJoints(gltf.scene)
+        VRM.from(gltf).then((vrm) => {
+          avatar.current = vrm
+          vrm.lookAt.target = camera
+          vrm.humanoid.getBoneNode(VRMSchema.HumanoidBoneName.Hips).rotation.y = Math.PI
+  
+          const bones = {
+            neck: vrm.humanoid.getBoneNode(VRMSchema.HumanoidBoneName.Neck),
+            hips: vrm.humanoid.getBoneNode(VRMSchema.HumanoidBoneName.Hips),
+            LeftShoulder: vrm.humanoid.getBoneNode(VRMSchema.HumanoidBoneName.LeftShoulder),
+            RightShoulder: vrm.humanoid.getBoneNode(VRMSchema.HumanoidBoneName.RightShoulder)
+          }
+  
+          // bones.RightShoulder.rotation.z = -Math.PI / 4
+  
+          setBones(bones)
+        })
+      }
+    }, [scene, gltf, camera])
+  
+    useFrame(({ clock }, delta) => {
+      if (avatar.current) {
+        avatar.current.update(delta)
+      }
+      if (bonesStore.neck) {
+        const t = clock.getElapsedTime()
+        bonesStore.neck.rotation.y = (Math.PI / 4) * Math.sin(t * Math.PI)
+      }
+      if (bonesStore.LeftShoulder) {
+        bonesStore.LeftShoulder.position.y = leftShoulder
+        bonesStore.LeftShoulder.rotation.z = leftShoulder * Math.PI
+      }
+      if (bonesStore.RightShoulder) {
+        bonesStore.RightShoulder.rotation.z = rightShoulder * Math.PI
+      }
+    })
+    return <primitive object={gltf.scene}></primitive>
+  }
 
 export default function Client({api}) {
     return (
         <Canvas style={{ background: '#333F47', width: '100vw', height: '100vh' }} orthographic>
-            <Scene api={api}/>
+            <Scene/>
+            <OrbitControls />
             <Stats />
             <StatsGl />
         </Canvas>
